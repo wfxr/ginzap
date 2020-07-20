@@ -3,6 +3,7 @@
 package ginzap
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -37,22 +38,26 @@ func Ginzap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
 			end = end.UTC()
 		}
 
+		logger = logger.With(
+			zap.Int("status", c.Writer.Status()),
+			zap.String("method", c.Request.Method),
+			zap.String("path", path),
+			zap.String("query", query),
+			zap.String("ip", c.ClientIP()),
+			zap.String("user-agent", c.Request.UserAgent()),
+			zap.String("time", end.Format(timeFormat)),
+			zap.Duration("latency", latency),
+		)
 		if len(c.Errors) > 0 {
-			// Append error field if this is an erroneous request.
-			for _, e := range c.Errors.Errors() {
-				logger.Error(e)
+			status := c.Writer.Status()
+			errors := zap.Error(errors.New(c.Errors.String()))
+			if status == 0 || status >= 500 {
+				logger.Error(path, errors)
+			} else {
+				logger.Info(path, errors)
 			}
 		} else {
-			logger.Info(path,
-				zap.Int("status", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", path),
-				zap.String("query", query),
-				zap.String("ip", c.ClientIP()),
-				zap.String("user-agent", c.Request.UserAgent()),
-				zap.String("time", end.Format(timeFormat)),
-				zap.Duration("latency", latency),
-			)
+			logger.Info(path)
 		}
 	}
 }

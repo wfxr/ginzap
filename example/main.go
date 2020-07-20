@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-contrib/zap"
+	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -32,6 +32,14 @@ func main() {
 	// Example when panic happen.
 	r.GET("/panic", func(c *gin.Context) {
 		panic("An unexpected error happen!")
+	})
+
+	// Example when request is invalid
+	r.GET("/bad", func(c *gin.Context) {
+		s := struct{ a int }{}
+		if err := c.BindJSON(&s); err != nil {
+			c.Status(400)
+		}
 	})
 
 	// Listen and Server in 0.0.0.0:8080
