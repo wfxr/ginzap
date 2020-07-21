@@ -41,7 +41,7 @@ func GinzapWithFilter(logger *zap.Logger, filter func(c *gin.Context) bool) gin.
 		end := time.Now()
 		latency := end.Sub(start)
 
-		logger = logger.With(
+		newLogger := logger.With(
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
@@ -55,12 +55,12 @@ func GinzapWithFilter(logger *zap.Logger, filter func(c *gin.Context) bool) gin.
 			status := c.Writer.Status()
 			errors := zap.Error(errors.New(c.Errors.String()))
 			if status == 0 || status >= 500 {
-				logger.Error(path, errors)
+				newLogger.Error(path, errors)
 			} else {
-				logger.Info(path, errors)
+				newLogger.Info(path, errors)
 			}
 		} else {
-			logger.Info(path)
+			newLogger.Info(path)
 		}
 	}
 }
