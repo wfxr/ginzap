@@ -16,16 +16,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// Ginzap returns a gin.HandlerFunc (middleware) that logs requests using uber-go/zap.
-//
-// Requests with errors are logged using zap.Error().
-// Requests without errors are logged using zap.Info().
-//
-// It receives:
-//   1. A time package format string (e.g. time.RFC3339).
-//   2. A boolean stating whether to use UTC time zone or local.
-func Ginzap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
+func GinzapWithPathFilter(logger *zap.Logger, filter func(path string) bool) gin.HandlerFunc {
+	return GinzapWithFilter(logger, func(c *gin.Context) bool {
+		return filter(c.Request.URL.Path)
+	})
+}
+
+func Ginzap(logger *zap.Logger) gin.HandlerFunc {
+	return GinzapWithFilter(logger, nil)
+}
+
+func GinzapWithFilter(logger *zap.Logger, filter func(c *gin.Context) bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if filter != nil && !filter(c) {
+			c.Next()
+			return
+		}
 		start := time.Now()
 		// some evil middlewares modify this values
 		path := c.Request.URL.Path
@@ -34,9 +40,6 @@ func Ginzap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
 
 		end := time.Now()
 		latency := end.Sub(start)
-		if utc {
-			end = end.UTC()
-		}
 
 		logger = logger.With(
 			zap.Int("status", c.Writer.Status()),
@@ -45,7 +48,7 @@ func Ginzap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
 			zap.String("query", query),
 			zap.String("ip", c.ClientIP()),
 			zap.String("user-agent", c.Request.UserAgent()),
-			zap.String("time", end.Format(timeFormat)),
+			zap.Time("time", end),
 			zap.Duration("latency", latency),
 		)
 		if len(c.Errors) > 0 {
